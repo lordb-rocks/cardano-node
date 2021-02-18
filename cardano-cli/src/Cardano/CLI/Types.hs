@@ -8,9 +8,12 @@ module Cardano.CLI.Types
   , Datum (..)
   , ExecutionUnits(..)
   , GenesisFile (..)
-  , ScriptBundle(..)
   , NonNativeScriptFile(..)
   , PlutusScriptType(..)
+  , ZippedCertifyingScript(..)
+  , ZippedMintingScript(..)
+  , ZippedRewardingScript(..)
+  , ZippedSpendingScript(..)
   , OutputFormat (..)
   , PlutusTag (..)
   , PlutusScriptRequirements(..)
@@ -117,15 +120,6 @@ newtype Datum = Datum { unDatum :: FilePath } deriving Show
 
 newtype Redeemer = Redeemer { unRedeemer :: FilePath } deriving Show
 
--- ScriptBundle can be any script type (native, plutus etc) and version.
-data ScriptBundle
-  = ScriptBundle
-      { scriptBundleFile :: ScriptFile
-        -- ^ Filepath of the script
-      , scriptBundlePlutus :: Maybe PlutusScriptRequirements
-        -- ^ Plutus script additional requirements.
-      } deriving Show
-
 data PlutusScriptRequirements
   = PlutusScriptRequirements
       { plutusScriptType :: PlutusScriptType
@@ -137,6 +131,23 @@ data PlutusScriptRequirements
       , plutusScriptRedeemers :: [Redeemer]
       , plutusScriptDatum :: Maybe Datum
       } deriving Show
+
+
+-- | Validates certificate transactions
+data ZippedCertifyingScript = ZippedCertifyingScript ScriptFile [Redeemer] (Maybe Datum)
+                            deriving Show
+
+-- | Validates certificate transactions
+data ZippedSpendingScript = ZippedSpendingScript ScriptFile [Redeemer] (Maybe Datum)
+                          deriving Show
+
+-- | Validates minting new tokens
+data ZippedMintingScript = ZippedMintingScript ScriptFile [Redeemer] (Maybe Datum)
+                         deriving Show
+
+-- | Validates withdrawl from a reward account
+data ZippedRewardingScript = ZippedRewardingScript ScriptFile [Redeemer] (Maybe Datum)
+                           deriving Show
 
 -- | The different types of Plutus scripts
 --and what they do.

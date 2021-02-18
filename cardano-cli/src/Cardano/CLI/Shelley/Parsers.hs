@@ -18,10 +18,10 @@ import           Cardano.Prelude hiding (All, Any, option)
 import           Prelude (String)
 
 import           Cardano.Api
-import           Cardano.Api.Shelley hiding (PlutusScriptPurpose (..))
+import           Cardano.Api.Shelley
 
 import           Cardano.CLI.Mary.TxOutParser (parseTxOutAnyEra)
-import           Cardano.CLI.Mary.ValueParser (parseValue, policyId)
+import           Cardano.CLI.Mary.ValueParser (parseValue)
 import           Cardano.CLI.Shelley.Commands
 import           Cardano.CLI.Shelley.Key (InputFormat (..), VerificationKeyOrFile (..),
                    VerificationKeyOrHashOrFile (..), VerificationKeyTextOrFile (..),
@@ -210,103 +210,13 @@ parseDatum = Datum <$> Opt.strOption
               <> Opt.completer (Opt.bashCompleter "file")
               )
 
-pAnyScript :: Parser ScriptBundle
-pAnyScript = ScriptBundle
-               <$> pScriptFile
-               <*> optional pPlutusScriptRequirements
-
-  where
-    pPlutusScriptRequirements :: Parser PlutusScriptRequirements
-    pPlutusScriptRequirements = PlutusScriptRequirements
-                                  <$> pPlutusScriptType
-                                  <*> pExecutionUnits
-                                  <*> some parseFeeTxIn
-                                  <*> some pRedeemer
-                                  <*> optional parseDatum
-
-    pPlutusScriptType :: Parser PlutusScriptType
-    pPlutusScriptType =
-      pSpending <|> pMinting <|> pRewarding <|> pCertifying
-
-    pSpending :: Parser PlutusScriptType
-    pSpending = Spending <$> Opt.option (readerFromAttoParser parseTxInAny)
-                  (  Opt.long "spending"
-                  <> Opt.metavar "TX-IN"
-                  <> Opt.help "The transaction input that the non-native script will spend as\
-                              \ TxId#TxIx where TxId is the transaction hash and TxIx is the index."
-                  )
-
-    pMinting :: Parser PlutusScriptType
-    pMinting = Minting <$> Opt.option (readerFromParsecParser policyId)
-                 (  Opt.long "minting"
-                 <> Opt.metavar "POLICYID"
-                 <> Opt.help "The policy ID of the multi-asset that the non-native script will\
-                             \ mint/burn tokens of."
-                 )
-
-    pRewarding :: Parser PlutusScriptType
-    pRewarding = Rewarding <$> Opt.option (readerFromAttoParser parseStakeAddress)
-                  (  Opt.long "rewarding"
-                  <> Opt.metavar "STAKEADDR"
-                  <> Opt.help "The stake address that the non-native script will withdraw\
-                              \ rewards from."
-                  )
-
-    pCertifying :: Parser PlutusScriptType
-    pCertifying = Certifying <$> Opt.strOption
-                  (  Opt.long "certifying"
-                  <> Opt.metavar "FILE"
-                  <> Opt.help "Filepath of the delegation certifate that the non-native script\
-                              \ will certify."
-                  <> Opt.completer (Opt.bashCompleter "file")
-                  )
-
-    pExecutionUnits :: Parser ExecutionUnits
-    pExecutionUnits = ExecutionUnits <$> pMemory <*> pSteps
-
-    pMemory :: Parser Word64
-    pMemory = Opt.option (readerFromAttoParser $ parseWord64 "memory-required")
-      (  Opt.long "memory-required"
-      <> Opt.metavar "WORD64"
-      <> Opt.help "The required memory for the execution of the non-native script"
-      )
-
-    pSteps :: Parser Word64
-    pSteps = Opt.option (readerFromAttoParser $ parseWord64 "steps-required")
-      (  Opt.long "steps-required"
-      <> Opt.metavar "WORD64"
-      <> Opt.help "The required number of steps for the execution of the non-native script"
-      )
-
-    parseWord64 :: String -> Atto.Parser Word64
-    parseWord64 t = do
-      i <- Atto.decimal
-      if i > toInteger (maxBound :: Word64)
-      then fail $ show i <> " " <> t <> " exceeds the Word64 upper bound"
-      else return $ fromIntegral i
-
-    parseFeeTxIn :: Parser TxInAnyEra
-    parseFeeTxIn =
-      Opt.option (readerFromAttoParser parseFeeTxInAtto)
-        (  Opt.long "tx-in-fee"
-        <> Opt.metavar "TX-IN"
-        <> Opt.help "The tx input(s) to be used as fees for the Plutus script \
-                    \as TxId#TxIx where TxId is the transaction hash and TxIx is the index."
-        )
-
-    parseFeeTxInAtto :: Atto.Parser TxInAnyEra
-    parseFeeTxInAtto = do
-      txId <- parseTxId
-      index <- Atto.char '#' *> parseTxIx
-      return $ TxInAnyEra txId index IsPlutusFee
-
-    pRedeemer :: Parser Redeemer
-    pRedeemer = Redeemer <$> Opt.strOption
-        (  Opt.long "redeemer-file"
-        <> Opt.metavar "FILE"
-        <> Opt.help "Filepath of the script redeemer."
-        <> Opt.completer (Opt.bashCompleter "file")
-        )
+pRedeemer :: Parser Redeemer
+pRedeemer = Redeemer <$> Opt.strOption
+    (  Opt.long "redeemer-file"
+    <> Opt.metavar "FILE"
+    <> Opt.help "Filepath of the script redeemer."
+    <> Opt.completer (Opt.bashCompleter "file")
+    )
 
 pStakeAddress :: Parser StakeAddressCmd
 pStakeAddress =
@@ -610,7 +520,7 @@ pTransaction =
                                  <*> many pCertificateFile
                                  <*> many pWithdrawal
                                  <*> pTxMetadataJsonSchema
-                                 <*> many pAnyScript
+                                 <*> many pScriptFile
                                  <*> optional pProtocolParamsFile
                                  <*> many pMetadataFile
                                  <*> optional pUpdateProposalFile
@@ -1127,23 +1037,25 @@ pProtocolParamsFile =
       <> Opt.completer (Opt.bashCompleter "file")
       )
 
-pCertificateFile :: Parser CertificateFile
+pCertificateFile :: Parser (CertificateFile, Maybe ZippedCertifyingScript)
 pCertificateFile =
-  CertificateFile <$>
-    (  Opt.strOption
-         (  Opt.long "certificate-file"
-         <> Opt.metavar "FILE"
-         <> Opt.help "Filepath of the certificate. This encompasses all \
-                     \types of certificates (stake pool certificates, \
-                     \stake key certificates etc)"
-         <> Opt.completer (Opt.bashCompleter "file")
-         )
-    <|>
-       Opt.strOption
-         (  Opt.long "certificate"
-         <> Opt.internal
-         )
-    )
+  (,) <$> ( CertificateFile <$>
+            (  Opt.strOption
+                 (  Opt.long "certificate-file"
+                 <> Opt.metavar "FILE"
+                 <> Opt.help "Filepath of the certificate. This encompasses all \
+                             \types of certificates (stake pool certificates, \
+                             \stake key certificates etc)"
+                 <> Opt.completer (Opt.bashCompleter "file")
+                 )
+            <|>
+               Opt.strOption
+                 (  Opt.long "certificate"
+                 <> Opt.internal
+                 )
+            )) <*> optional (ZippedCertifyingScript <$> pScriptFile
+                                                    <*> some pRedeemer
+                                                    <*> optional parseDatum)
 
 pPoolMetadataFile :: Parser PoolMetadataFile
 pPoolMetadataFile =
@@ -1198,15 +1110,18 @@ pMetadataFile =
           <> Opt.completer (Opt.bashCompleter "file")
           )
 
-pWithdrawal :: Parser (StakeAddress, Lovelace)
+pWithdrawal :: Parser ((StakeAddress, Lovelace), Maybe ZippedRewardingScript)
 pWithdrawal =
-    Opt.option (readerFromAttoParser parseWithdrawal)
-      (  Opt.long "withdrawal"
-      <> Opt.metavar "WITHDRAWAL"
-      <> Opt.help "The reward withdrawal as StakeAddress+Lovelace where \
-                  \StakeAddress is the Bech32-encoded stake address \
-                  \followed by the amount in Lovelace."
-      )
+    (,) <$> Opt.option (readerFromAttoParser parseWithdrawal)
+              (  Opt.long "withdrawal"
+              <> Opt.metavar "WITHDRAWAL"
+              <> Opt.help "The reward withdrawal as StakeAddress+Lovelace where \
+                          \StakeAddress is the Bech32-encoded stake address \
+                          \followed by the amount in Lovelace."
+              )
+        <*> optional (ZippedRewardingScript <$> pScriptFile
+                                            <*> some pRedeemer
+                                            <*> optional parseDatum)
   where
     parseWithdrawal :: Atto.Parser (StakeAddress, Lovelace)
     parseWithdrawal =
@@ -1646,13 +1561,17 @@ pCardanoEra = asum
   , pure (AnyCardanoEra ShelleyEra)
   ]
 
-pTxIn :: Parser TxInAnyEra
-pTxIn =
-  Opt.option (readerFromAttoParser parseTxInAny)
-    (  Opt.long "tx-in"
-    <> Opt.metavar "TX-IN"
-    <> Opt.help "The input transaction as TxId#TxIx where TxId is the transaction hash and TxIx is the index."
-    )
+pTxIn :: Parser (TxInAnyEra, Maybe ZippedSpendingScript)
+pTxIn = do
+  (,) <$> Opt.option (readerFromAttoParser parseTxInAny)
+             (  Opt.long "tx-in"
+             <> Opt.metavar "TX-IN"
+             <> Opt.help "The input transaction as TxId#TxIx where TxId is the transaction hash and TxIx is the index."
+             )
+      <*> optional (ZippedSpendingScript <$> pScriptFile
+                                         <*> some pRedeemer
+                                         <*> optional parseDatum)
+
 
 parseTxInAny :: Atto.Parser TxInAnyEra
 parseTxInAny = do
@@ -1680,25 +1599,28 @@ parseTxIx = toEnum <$> Atto.decimal
 
 
 pTxOut :: Parser TxOutAnyEra
-pTxOut =
-    Opt.option (readerFromParsecParser parseTxOutAnyEra)
-      (  Opt.long "tx-out"
-      <> Opt.metavar "TX-OUT"
-      -- TODO: Update the help text to describe the new syntax as well.
-      <> Opt.help "The transaction output as Address+Lovelace where Address is \
-                  \the Bech32-encoded address followed by the amount in \
-                  \Lovelace. Optionally include a Datum if spending a txout locked by \
-                  \a non-native script (e.g Plutus Core)"
-      )
+pTxOut = Opt.option (readerFromParsecParser parseTxOutAnyEra)
+           (  Opt.long "tx-out"
+           <> Opt.metavar "TX-OUT"
+           -- TODO: Update the help text to describe the new syntax as well.
+           <> Opt.help "The transaction output as Address+Lovelace where Address is \
+                       \the Bech32-encoded address followed by the amount in \
+                       \Lovelace. Optionally include a Datum if spending a txout locked by \
+                       \a non-native script (e.g Plutus Core)"
+           )
 
-pMintMultiAsset :: Parser Value
+pMintMultiAsset :: Parser (Value, Maybe ZippedMintingScript)
 pMintMultiAsset =
-  Opt.option
-    (readerFromParsecParser parseValue)
-      (  Opt.long "mint"
-      <> Opt.metavar "VALUE"
-      <> Opt.help "Mint multi-asset value(s) with the multi-asset cli syntax"
-      )
+  (,) <$> Opt.option
+           (readerFromParsecParser parseValue)
+             (  Opt.long "mint"
+             <> Opt.metavar "VALUE"
+             <> Opt.help "Mint multi-asset value(s) with the multi-asset cli syntax"
+             )
+      <*> optional (ZippedMintingScript <$> pScriptFile
+                                        <*> some pRedeemer
+                                        <*> optional parseDatum)
+
 
 pInvalidBefore :: Parser SlotNo
 pInvalidBefore =

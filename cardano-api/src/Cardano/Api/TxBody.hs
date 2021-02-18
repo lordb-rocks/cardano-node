@@ -36,18 +36,20 @@ module Cardano.Api.TxBody (
     TxIx(..),
     TxInTypeInEra(..),
     genesisUTxOPseudoTxIn,
-    plutusFeesSupportedInEra,
+    plutusScriptsSupportedInEra,
 
     -- * Transaction outputs
     TxOut(..),
     TxOutValue(..),
+    MintTypeInEra(..),
 
-    -- ** Plutus script purpose
-    PlutusScriptPurpose(..),
-    generateCertificateRedeemer,
-    generateMintingRedeemer,
-    generateRewardingRedeemer,
-    generateSpendingRedeemer,
+    -- ** Plutus script
+    RedeemerPointer(..),
+   -- PlutusScriptPurpose(..),
+   -- generateCertificateRedeemer,
+   -- generateMintingRedeemer,
+   -- generateRewardingRedeemer,
+   -- generateSpendingRedeemer,
 
     -- * Other transaction body types
     TxFee(..),
@@ -76,6 +78,9 @@ module Cardano.Api.TxBody (
     TxExecutionUnits(..),
     TxWitnessPPData(..),
     WitnessPPDataSupportedInEra(..),
+    PlutusScriptsSupportedInEra(..),
+    CertificateTypeInEra(..),
+    WithdrawalsTypeInEra(..),
 
     -- ** Feature availability functions
     multiAssetSupportedInEra,
@@ -115,7 +120,7 @@ import           Data.Aeson.Types (ToJSONKey (..), toJSONKeyText)
 import           Data.Bifunctor (first)
 import           Data.ByteString (ByteString)
 import qualified Data.ByteString.Lazy as LBS
-import           Data.List (elemIndex, findIndex, intercalate)
+import           Data.List (intercalate)
 import qualified Data.List.NonEmpty as NonEmpty
 import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
@@ -254,44 +259,34 @@ deriving instance Eq   (TxIn era)
 deriving instance Ord  (TxIn era)
 deriving instance Show (TxIn era)
 
-data OnlyNormalFeesSupportedInEra era where
+data PlutusScriptsSupportedInEra era where
 
-     NormalFeesOnlyInByronEra   :: OnlyNormalFeesSupportedInEra ByronEra
-     NormalFeesOnlyInShelleyEra :: OnlyNormalFeesSupportedInEra ShelleyEra
-     NormalFeesOnlyInAllegraEra :: OnlyNormalFeesSupportedInEra AllegraEra
-     NormalFeesOnlyInMaryEra    :: OnlyNormalFeesSupportedInEra MaryEra
+     PlutusScriptsInAlonzoEra :: PlutusScriptsSupportedInEra AlonzoEra
 
-deriving instance Eq   (OnlyNormalFeesSupportedInEra era)
-deriving instance Show (OnlyNormalFeesSupportedInEra era)
+deriving instance Eq   (PlutusScriptsSupportedInEra era)
+deriving instance Ord  (PlutusScriptsSupportedInEra era)
+deriving instance Show (PlutusScriptsSupportedInEra era)
 
-data PlutusFeesSupportedInEra era where
-
-     PlutusFeesInAlonzoEra :: PlutusFeesSupportedInEra AlonzoEra
-
-deriving instance Eq   (PlutusFeesSupportedInEra era)
-deriving instance Ord  (PlutusFeesSupportedInEra era)
-deriving instance Show (PlutusFeesSupportedInEra era)
-
-
-plutusFeesSupportedInEra :: CardanoEra era
-                         -> Either (OnlyNormalFeesSupportedInEra era)
-                                   (PlutusFeesSupportedInEra era)
-plutusFeesSupportedInEra ByronEra   = Left NormalFeesOnlyInByronEra
-plutusFeesSupportedInEra ShelleyEra = Left NormalFeesOnlyInShelleyEra
-plutusFeesSupportedInEra AllegraEra = Left NormalFeesOnlyInAllegraEra
-plutusFeesSupportedInEra MaryEra    = Left NormalFeesOnlyInMaryEra
-plutusFeesSupportedInEra AlonzoEra  = Right PlutusFeesInAlonzoEra
+plutusScriptsSupportedInEra :: CardanoEra era
+                            -> Maybe (PlutusScriptsSupportedInEra era)
+plutusScriptsSupportedInEra ByronEra   = Nothing
+plutusScriptsSupportedInEra ShelleyEra = Nothing
+plutusScriptsSupportedInEra AllegraEra = Nothing
+plutusScriptsSupportedInEra MaryEra    = Nothing
+plutusScriptsSupportedInEra AlonzoEra  = Just PlutusScriptsInAlonzoEra
 
 -- | This labels a TxIn that will be used
 --for spending a UTxO locked by a non-native script (e.g Plutus Core).
 --I.E the 'TxIn' is being used to execute a non-native
 --script (e.g Plutus Core) and the 'TxIn' is /NOT/ locked by a non-native script.
 data TxInTypeInEra era where
-  PlutusInput    :: PlutusFeesSupportedInEra era-> TxInTypeInEra era
-  NotPlutusInput :: TxInTypeInEra era
+  PlutusFee           :: PlutusScriptsSupportedInEra era -> TxInTypeInEra era
+  PlutusSpendingInput :: PlutusScriptsSupportedInEra era
+                      -> Maybe ScriptDatum -> TxInTypeInEra era
+  NotPlutusInput      :: TxInTypeInEra era
 
-deriving instance Eq (TxInTypeInEra era)
-deriving instance Ord (TxInTypeInEra era)
+deriving instance Eq   (TxInTypeInEra era)
+deriving instance Ord  (TxInTypeInEra era)
 deriving instance Show (TxInTypeInEra era)
 
 -- ----------------------------------------------------------------------------
@@ -301,14 +296,22 @@ deriving instance Show (TxInTypeInEra era)
 --   3. Validate certificates with script credentials.
 --   4. Validate reward withdrawals from script addresses.
 
+{- TODO: Likely not needed
+
 data PlutusScriptPurpose era where
-  Spending   :: TxIn era     -> PlutusScriptPurpose era
-  Minting    :: PolicyId     -> PlutusScriptPurpose era
+  Spending   :: TxId         -> Maybe ScriptDatum -> PlutusScriptPurpose era
+  Minting    :: PolicyId     -> Maybe ScriptDatum -> PlutusScriptPurpose era
   Certifying :: Certificate  -> PlutusScriptPurpose era
   Rewarding  :: StakeAddress -> PlutusScriptPurpose era
 
+deriving instance Eq   (PlutusScriptPurpose era)
+deriving instance Ord  (PlutusScriptPurpose era)
+deriving instance Show (PlutusScriptPurpose era)
+-}
+
 -- | The 'RedeemerPointer' gives us the index
 -- at which the redeemer exists within a transaction body.
+
 data RedeemerPointer =
     CertificateRedeemer Word64
     -- ^ Gives us the index of a certificate.
@@ -319,6 +322,7 @@ data RedeemerPointer =
   | RewardingRedeemer Word64
     -- ^ Gives us the index of the withdrawal certificate.
 
+{-
 generateRewardingRedeemer
   :: ScriptLanguageInEra lang era
   -> (PlutusScriptPurpose era, Maybe ScriptDatum)
@@ -336,11 +340,12 @@ generateRewardingRedeemer _ _ _ = Nothing
 
 generateSpendingRedeemer
   :: ScriptLanguageInEra lang era
-  -> (PlutusScriptPurpose era, Maybe ScriptDatum)
+  -> PlutusScriptPurpose era
   -> [TxIn era]
   -> Maybe (RedeemerPointer, Maybe ScriptDatum)
-generateSpendingRedeemer PlutusScriptV1InAlonzo (Spending txin, mDatum) txins = do
-  r <- SpendingRedeemer . fromIntegral <$> elemIndex txin txins
+generateSpendingRedeemer PlutusScriptV1InAlonzo (Spending txin mDatum) txins = do
+  let txIds = [ txId | TxIn txId _ _  <- txins]
+  r <- SpendingRedeemer . fromIntegral <$> elemIndex txin txIds
   Just (r, mDatum)
 generateSpendingRedeemer _ _ _ = Nothing
 
@@ -359,10 +364,10 @@ generateCertificateRedeemer _ _ _ = Nothing
 
 generateMintingRedeemer
  :: ScriptLanguageInEra lang era
- -> (PlutusScriptPurpose era, Maybe ScriptDatum)
+ -> PlutusScriptPurpose era
  -> [TxOut era]
  -> Maybe (RedeemerPointer, Maybe ScriptDatum)
-generateMintingRedeemer PlutusScriptV1InAlonzo (Minting polId, mDat) txOuts = do
+generateMintingRedeemer PlutusScriptV1InAlonzo (Minting polId mDat) txOuts = do
   let vals = [ val | TxOut _ (TxOutValue _ val) <- txOuts ]
   r <- findIndex (matchPolicyId polId)
                  (concatMap valueToList vals)
@@ -373,27 +378,21 @@ generateMintingRedeemer PlutusScriptV1InAlonzo (Minting polId, mDat) txOuts = do
   matchPolicyId pId (AssetId pid _,_) = pId == pid
 
 generateMintingRedeemer _ _ _ = Nothing
-
+-}
 makeTxWitnessPPDataHash
   :: ScriptLanguageInEra lang era
-  -> TxWitnessPPData era
+  -> TxWitnessPPData era -- Strictly plutus tagged things
+  -- All txins, certs, outs and withdrawls. Need these to determine the index
   -> [TxIn era]
   -> TxCertificates era
   -> [TxOut era]
   -> TxWithdrawals era
   -> Maybe Text -- Placeholder. Should be: Maybe (WitnessPPDataHash (Crypto era)
 makeTxWitnessPPDataHash _ TxWitnessPPDataNone _ _ _ _ = Nothing
-makeTxWitnessPPDataHash sLangInEra (TxWitnessPPData _pparams scriptDatTuples)
-                        txins txcerts txouts txWithdrawals =
-  let _redeemers = [ redeemer | sDtups <- scriptDatTuples
-                   , let redeemers = [ generateCertificateRedeemer sLangInEra sDtups txcerts
-                                     , generateSpendingRedeemer sLangInEra sDtups txins
-                                     , generateMintingRedeemer sLangInEra sDtups txouts
-                                     , generateRewardingRedeemer sLangInEra sDtups txWithdrawals
-                                     ]
-                   , redeemer <- redeemers
-                   ]
-  in Nothing
+makeTxWitnessPPDataHash _sLangInEra (TxWitnessPPData _pparams _txins')
+                        _txins _txcerts _txouts _txWithdrawals =
+-- Create redeemer map her
+   Nothing
 
 
 instance ToJSON (TxIn era) where
@@ -477,6 +476,15 @@ instance IsCardanoEra era => ToJSON (TxOut era) where
 deriving instance Eq   (TxOut era)
 deriving instance Show (TxOut era)
 
+data MintTypeInEra era where
+  NoPlutusScript :: MintTypeInEra era
+  PlutusMinting  :: PlutusScriptsSupportedInEra era
+                 -> Maybe ScriptDatum
+                 -> MintTypeInEra era
+
+deriving instance Eq   (MintTypeInEra era)
+deriving instance Show (MintTypeInEra era)
+
 
 toByronTxOut :: TxOut ByronEra -> Maybe Byron.TxOut
 toByronTxOut (TxOut (AddressInEra ByronAddressInAnyEra (ByronAddress addr))
@@ -522,14 +530,17 @@ fromTxOut shelleyBasedEra' ledgerTxOut =
                               in TxOut (fromShelleyAddr addr)
                                        (TxOutAdaOnly AdaOnlyInShelleyEra
                                                       (fromShelleyLovelace value))
+
     ShelleyBasedEraAllegra -> let (Shelley.TxOut addr value) = ledgerTxOut
                               in TxOut (fromShelleyAddr addr)
                                         (TxOutAdaOnly AdaOnlyInAllegraEra
                                                       (fromShelleyLovelace value))
+
     ShelleyBasedEraMary    -> let (Shelley.TxOut addr value) = ledgerTxOut
                               in TxOut (fromShelleyAddr addr)
                                         (TxOutValue MultiAssetInMaryEra
                                                       (fromMaryValue value))
+
     ShelleyBasedEraAlonzo  -> let (Shelley.TxOut addr value) = ledgerTxOut
                               in TxOut (fromShelleyAddr addr)
                                         (TxOutValue MultiAssetInAlonzoEra
@@ -927,11 +938,20 @@ data TxWithdrawals era where
      TxWithdrawalsNone :: TxWithdrawals era
 
      TxWithdrawals     :: WithdrawalsSupportedInEra era
-                       -> [(StakeAddress, Lovelace)]
+                       -> [((StakeAddress, Lovelace), WithdrawalsTypeInEra era)]
                        -> TxWithdrawals era
 
 deriving instance Eq   (TxWithdrawals era)
 deriving instance Show (TxWithdrawals era)
+
+data WithdrawalsTypeInEra era where
+  NoPlutusScriptReward :: WithdrawalsTypeInEra era
+  PlutusRewarding      :: PlutusScriptsSupportedInEra era
+                       -> Maybe ScriptDatum
+                       -> WithdrawalsTypeInEra era
+
+deriving instance Eq   (WithdrawalsTypeInEra era)
+deriving instance Show (WithdrawalsTypeInEra era)
 
 
 -- ----------------------------------------------------------------------------
@@ -943,12 +963,21 @@ data TxCertificates era where
      TxCertificatesNone :: TxCertificates era
 
      TxCertificates     :: CertificatesSupportedInEra era
-                        -> [Certificate]
+                        -> [(Certificate, CertificateTypeInEra era)]
                         -> TxCertificates era
 
 deriving instance Eq   (TxCertificates era)
 deriving instance Show (TxCertificates era)
 
+
+data CertificateTypeInEra era where
+  NoPlutusScriptCert :: CertificateTypeInEra era
+  PlutusCertifying   :: PlutusScriptsSupportedInEra era
+                     -> Maybe ScriptDatum
+                     -> CertificateTypeInEra era
+
+deriving instance Eq   (CertificateTypeInEra era)
+deriving instance Show (CertificateTypeInEra era)
 
 -- ----------------------------------------------------------------------------
 -- Transaction metadata (era-dependent)
@@ -974,7 +1003,8 @@ data TxMintValue era where
 
      TxMintNone  :: TxMintValue era
 
-     TxMintValue :: MultiAssetSupportedInEra era -> Value -> TxMintValue era
+     TxMintValue :: MultiAssetSupportedInEra era -> MintTypeInEra era
+                 -> Value -> TxMintValue era
 
 deriving instance Eq   (TxMintValue era)
 deriving instance Show (TxMintValue era)
@@ -1012,7 +1042,7 @@ executionUnitsSupportedInEra AlonzoEra  = Just ExecutionUnitsSupportedInAlonzoEr
 data TxWitnessPPData era where
     TxWitnessPPDataNone :: TxWitnessPPData era
     TxWitnessPPData     :: ProtocolParameters era --TODO: This will need an era parameter to account for Alonzo
-                        -> [(PlutusScriptPurpose era, Maybe ScriptDatum)]
+                        -> [RedeemerPointer]
                         -> TxWitnessPPData era
 
 data WitnessPPDataSupportedInEra era where
@@ -1271,7 +1301,7 @@ makeTransactionBody =
 makeByronTransactionBody :: TxBodyContent ByronEra
                          -> Either (TxBodyError ByronEra) (TxBody ByronEra)
 makeByronTransactionBody TxBodyContent { txIns, txOuts } = do
-    ins'  <- NonEmpty.nonEmpty txIns      ?! TxBodyEmptyTxIns
+    ins'  <- NonEmpty.nonEmpty txIns   ?! TxBodyEmptyTxIns
     let ins'' = NonEmpty.map toByronTxIn ins'
 
     outs'  <- NonEmpty.nonEmpty txOuts    ?! TxBodyEmptyTxOuts
@@ -1327,14 +1357,16 @@ makeShelleyTransactionBody era@ShelleyBasedEraShelley
     return $
       ShelleyTxBody era
         (Shelley.TxBody
-          (Set.fromList (map toShelleyTxIn  txIns))
+          (Set.fromList (map toShelleyTxIn txIns))
           (Seq.fromList (map toShelleyTxOut txOuts))
           (case txCertificates of
              TxCertificatesNone  -> Seq.empty
-             TxCertificates _ cs -> Seq.fromList (map toShelleyCertificate cs))
+             TxCertificates _ cs ->
+               Seq.fromList
+                 $ map (\(c,_) -> toShelleyCertificate c) cs)
           (case txWithdrawals of
              TxWithdrawalsNone  -> Shelley.Wdrl Map.empty
-             TxWithdrawals _ ws -> toShelleyWithdrawal ws)
+             TxWithdrawals _ ws -> toShelleyWithdrawal $ map fst ws)
           (case txFee of
              TxFeeImplicit era'  -> case era' of {}
              TxFeeExplicit _ fee -> toShelleyLovelace fee)
@@ -1384,14 +1416,15 @@ makeShelleyTransactionBody era@ShelleyBasedEraAllegra
     return $
       ShelleyTxBody era
         (Allegra.TxBody
-          (Set.fromList (map toShelleyTxIn  txIns))
+          (Set.fromList (map toShelleyTxIn txIns))
           (Seq.fromList (map toShelleyTxOut txOuts))
           (case txCertificates of
              TxCertificatesNone  -> Seq.empty
-             TxCertificates _ cs -> Seq.fromList (map toShelleyCertificate cs))
+             TxCertificates _ cs ->
+               Seq.fromList $ map (\(c,_) -> toShelleyCertificate c) cs)
           (case txWithdrawals of
              TxWithdrawalsNone  -> Shelley.Wdrl Map.empty
-             TxWithdrawals _ ws -> toShelleyWithdrawal ws)
+             TxWithdrawals _ ws -> toShelleyWithdrawal $ map fst ws)
           (case txFee of
              TxFeeImplicit era'  -> case era' of {}
              TxFeeExplicit _ fee -> toShelleyLovelace fee)
@@ -1456,19 +1489,19 @@ makeShelleyTransactionBody era@ShelleyBasedEraMary
       TxMetadataInEra _ m -> validateTxMetadata m ?!. TxBodyMetadataError
     case txMintValue of
       TxMintNone      -> return ()
-      TxMintValue _ v -> guard (selectLovelace v == 0) ?! TxBodyMintAdaError
+      TxMintValue _ _ v -> guard (selectLovelace v == 0) ?! TxBodyMintAdaError
 
     return $
       ShelleyTxBody era
         (Allegra.TxBody
-          (Set.fromList (map toShelleyTxIn  txIns))
+          (Set.fromList (map toShelleyTxIn txIns))
           (Seq.fromList (map toShelleyTxOut txOuts))
           (case txCertificates of
              TxCertificatesNone  -> Seq.empty
-             TxCertificates _ cs -> Seq.fromList (map toShelleyCertificate cs))
+             TxCertificates _ cs -> Seq.fromList $ map (\(c,_) -> toShelleyCertificate c) cs)
           (case txWithdrawals of
              TxWithdrawalsNone  -> Shelley.Wdrl Map.empty
-             TxWithdrawals _ ws -> toShelleyWithdrawal ws)
+             TxWithdrawals _ ws -> toShelleyWithdrawal $ map fst ws)
           (case txFee of
              TxFeeImplicit era'  -> case era' of {}
              TxFeeExplicit _ fee -> toShelleyLovelace fee)
@@ -1487,7 +1520,7 @@ makeShelleyTransactionBody era@ShelleyBasedEraMary
             (Ledger.hashAuxiliaryData @StandardMary <$> txAuxData))
           (case txMintValue of
              TxMintNone      -> mempty
-             TxMintValue _ v -> toMaryValue v))
+             TxMintValue _ _ v -> toMaryValue v))
         txAuxData
   where
     txAuxData :: Maybe (Ledger.AuxiliaryData StandardMary)
@@ -1547,19 +1580,19 @@ makeShelleyTransactionBody era@ShelleyBasedEraAlonzo
       TxMetadataInEra _ m -> validateTxMetadata m ?!. TxBodyMetadataError
     case txMintValue of
       TxMintNone      -> return ()
-      TxMintValue _ v -> guard (selectLovelace v == 0) ?! TxBodyMintAdaError
+      TxMintValue _ _mPlutScript v -> guard (selectLovelace v == 0) ?! TxBodyMintAdaError
 
     return $
       ShelleyTxBody era
         (Allegra.TxBody
-          (Set.fromList (map toShelleyTxIn  txIns))
+          (Set.fromList (map toShelleyTxIn txIns))
           (Seq.fromList (map toShelleyTxOut txOuts))
           (case txCertificates of
              TxCertificatesNone  -> Seq.empty
-             TxCertificates _ cs -> Seq.fromList (map toShelleyCertificate cs))
+             TxCertificates _ cs -> Seq.fromList $ map (\(c,_mPlutusScripts) -> toShelleyCertificate c) cs) --TODO: Need to handle this
           (case txWithdrawals of
              TxWithdrawalsNone  -> Shelley.Wdrl Map.empty
-             TxWithdrawals _ ws -> toShelleyWithdrawal ws)
+             TxWithdrawals _ ws -> toShelleyWithdrawal $ map fst ws)
           (case txFee of
              TxFeeImplicit era'  -> case era' of {}
              TxFeeExplicit _ fee -> toShelleyLovelace fee)
@@ -1578,7 +1611,7 @@ makeShelleyTransactionBody era@ShelleyBasedEraAlonzo
             (Ledger.hashAuxiliaryData @StandardMary <$> txAuxData))
           (case txMintValue of
              TxMintNone      -> mempty
-             TxMintValue _ v -> toMaryValue v))
+             TxMintValue _ _ v -> toMaryValue v))
         txAuxData
   where
     txAuxData :: Maybe (Ledger.AuxiliaryData StandardMary)
@@ -1660,7 +1693,7 @@ makeShelleyTransaction :: [TxIn ShelleyEra]
                        -> [TxOut ShelleyEra]
                        -> SlotNo
                        -> Lovelace
-                       -> [Certificate]
+                       -> [(Certificate, CertificateTypeInEra ShelleyEra)]
                        -> [(StakeAddress, Lovelace)]
                        -> Maybe TxMetadata
                        -> Maybe UpdateProposal
@@ -1680,7 +1713,7 @@ makeShelleyTransaction txIns txOuts ttl fee
                              Just md -> TxMetadataInEra
                                           TxMetadataInShelleyEra md,
         txAuxScripts     = TxAuxScriptsNone,
-        txWithdrawals    = TxWithdrawals WithdrawalsInShelleyEra withdrawals,
+        txWithdrawals    = TxWithdrawals WithdrawalsInShelleyEra $ map (\(s,l) -> ((s, l), NoPlutusScriptReward)) withdrawals,
         txCertificates   = TxCertificates CertificatesInShelleyEra certs,
         txUpdateProposal = case mUpdateProp of
                              Nothing -> TxUpdateProposalNone

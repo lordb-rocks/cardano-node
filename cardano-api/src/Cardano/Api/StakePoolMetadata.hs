@@ -32,8 +32,8 @@ import qualified Shelley.Spec.Ledger.Keys as Shelley
 
 import           Cardano.Api.Eras
 import           Cardano.Api.Error
-import           Cardano.Api.Hash
 import           Cardano.Api.HasTypeProxy
+import           Cardano.Api.Hash
 import           Cardano.Api.Key
 import           Cardano.Api.KeysByron
 import           Cardano.Api.KeysPraos
@@ -69,7 +69,7 @@ data StakePoolMetadata =
 
 newtype instance Hash StakePoolMetadata =
                  StakePoolMetadataHash (Shelley.Hash StandardCrypto ByteString)
-    deriving (Eq, Show)
+    deriving (Eq, Ord, Show)
 
 instance HasTypeProxy StakePoolMetadata where
     data AsType StakePoolMetadata = AsStakePoolMetadata

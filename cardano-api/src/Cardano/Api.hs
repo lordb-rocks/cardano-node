@@ -159,11 +159,12 @@ module Cardano.Api (
     TxIn(TxIn),
     TxIx(TxIx),
     TxInTypeInEra(..),
-    plutusFeesSupportedInEra,
+    plutusScriptsSupportedInEra,
 
     -- ** Transaction outputs
     TxOut(TxOut),
     TxOutValue(..),
+    MintTypeInEra(..),
 
     -- ** Other transaction body types
     TxFee(..),
@@ -194,6 +195,9 @@ module Cardano.Api (
     CertificatesSupportedInEra(..),
     UpdateProposalSupportedInEra(..),
     WitnessPPDataSupportedInEra(..),
+    PlutusScriptsSupportedInEra(..),
+    CertificateTypeInEra(..),
+    WithdrawalsTypeInEra(..),
 
     -- ** Feature availability functions
     multiAssetSupportedInEra,
@@ -310,7 +314,8 @@ module Cardano.Api (
     eraOfScriptLanguageInEra,
 
     -- ** Plutus script purpose
-    PlutusScriptPurpose,
+    --PlutusScriptPurpose,
+    RedeemerPointer(..),
 
     -- ** Plutus script datum
     ScriptDatum(..),

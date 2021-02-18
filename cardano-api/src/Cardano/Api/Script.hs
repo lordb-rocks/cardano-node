@@ -1,5 +1,6 @@
 {-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE GeneralisedNewtypeDeriving #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -419,6 +420,7 @@ instance HasTextEnvelope ScriptInAnyLang where
 -- the hash of an additional “datum”. The datum can be used to encode state, for example.
 
 newtype ScriptDatum = ScriptDatum ()
+       deriving newtype (Eq, Ord, Show)
 
 -- ----------------------------------------------------------------------------
 -- Scripts in the context of a ledger era
