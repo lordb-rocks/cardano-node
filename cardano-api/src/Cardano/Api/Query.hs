@@ -218,13 +218,13 @@ fromUTxO eraConversion utxo =
       in UTxO . Map.fromList . map (bimap fromShelleyTxIn fromShelleyTxOut) $ Map.toList sUtxo
     ShelleyBasedEraAllegra ->
       let Shelley.UTxO sUtxo = utxo
-      in UTxO . Map.fromList . map (bimap fromShelleyTxIn (fromTxOut ShelleyBasedEraAllegra)) $ Map.toList sUtxo
+      in UTxO . Map.fromList . map (bimap fromShelleyTxIn (\txo -> fromTxOut ShelleyBasedEraAllegra txo Shelley.SNothing)) $ Map.toList sUtxo
     ShelleyBasedEraMary ->
       let Shelley.UTxO sUtxo = utxo
-      in UTxO . Map.fromList . map (bimap fromShelleyTxIn (fromTxOut ShelleyBasedEraMary)) $ Map.toList sUtxo
+      in UTxO . Map.fromList . map (bimap fromShelleyTxIn (\txo -> fromTxOut ShelleyBasedEraMary txo Shelley.SNothing)) $ Map.toList sUtxo
     ShelleyBasedEraAlonzo ->
       let Shelley.UTxO sUtxo = utxo
-      in UTxO . Map.fromList . map (bimap fromShelleyTxIn (fromTxOut ShelleyBasedEraAlonzo)) $ Map.toList sUtxo
+      in UTxO . Map.fromList . map (bimap fromShelleyTxIn (\txo -> fromTxOut ShelleyBasedEraAlonzo txo (Shelley.SJust $ error "Waiting on eUTxO"))) $ Map.toList sUtxo
 
 fromShelleyPoolDistr :: Shelley.PoolDistr StandardCrypto
                      -> Map (Hash StakePoolKey) Rational
@@ -283,6 +283,7 @@ toConsensusQuery (QueryInEra erainmode (QueryInShelleyBasedEra era q)) =
       ShelleyEraInCardanoMode -> toConsensusQueryShelleyBased erainmode q
       AllegraEraInCardanoMode -> toConsensusQueryShelleyBased erainmode q
       MaryEraInCardanoMode    -> toConsensusQueryShelleyBased erainmode q
+      AlonzoEraInCardanoMode  -> toConsensusQueryShelleyBased erainmode q
 
 
 toConsensusQueryShelleyBased
@@ -349,6 +350,7 @@ consensusQueryInEraInMode ByronEraInCardanoMode   = Consensus.QueryIfCurrentByro
 consensusQueryInEraInMode ShelleyEraInCardanoMode = Consensus.QueryIfCurrentShelley
 consensusQueryInEraInMode AllegraEraInCardanoMode = Consensus.QueryIfCurrentAllegra
 consensusQueryInEraInMode MaryEraInCardanoMode    = Consensus.QueryIfCurrentMary
+consensusQueryInEraInMode AlonzoEraInCardanoMode  = Consensus.QueryIfCurrentMary
 
 
 -- ----------------------------------------------------------------------------
@@ -422,6 +424,14 @@ fromConsensusQueryResult (QueryInEra MaryEraInCardanoMode
               r'
       _ -> fromConsensusQueryResultMismatch
 
+fromConsensusQueryResult (QueryInEra AlonzoEraInCardanoMode
+                                     (QueryInShelleyBasedEra _era q)) q' r' =
+    case q' of
+      Consensus.QueryIfCurrentMary q'' ->
+        bimap fromConsensusEraMismatch
+              (fromConsensusQueryResultShelleyBased ShelleyBasedEraMary q q'')
+              r'
+      _ -> fromConsensusQueryResultMismatch
 
 fromConsensusQueryResultShelleyBased
   :: forall era ledgerera result result'.

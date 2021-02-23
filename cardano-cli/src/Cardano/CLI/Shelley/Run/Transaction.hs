@@ -578,6 +578,7 @@ validateTxWitnessPPData era mPParams txins _mMint _certifying _rewarding =
    txInRedeemers :: [TxIn era] -> [RedeemerPointer]
    txInRedeemers ins  = go 0 ins
      where
+       go _ [] = []
        go counter (TxIn _ _ txType : rest) =
          case txType of
            PlutusFee _ -> go (counter + 1) rest

@@ -166,6 +166,9 @@ import qualified Shelley.Spec.Ledger.Tx as Shelley
 import qualified Shelley.Spec.Ledger.TxBody as Shelley
 import qualified Shelley.Spec.Ledger.UTxO as Shelley
 
+--import qualified Cardano.Ledger.Alonzo.TxBody as Alonzo
+import qualified Cardano.Ledger.Alonzo.Data as Alonzo
+
 import           Cardano.Api.Address
 import           Cardano.Api.Certificate
 import           Cardano.Api.Eras
@@ -517,14 +520,15 @@ toShelleyTxOut (TxOut addr (TxOutValue MultiAssetInMaryEra value)) =
 toShelleyTxOut (TxOut _addr (TxOutValue MultiAssetInAlonzoEra _value)) = error "TODO"
 
 fromShelleyTxOut :: Shelley.TxOut StandardShelley -> TxOut ShelleyEra
-fromShelleyTxOut = fromTxOut ShelleyBasedEraShelley
+fromShelleyTxOut txout = fromTxOut ShelleyBasedEraShelley txout SNothing
 
 fromTxOut
   :: ShelleyLedgerEra era ~ ledgerera
   => ShelleyBasedEra era
   -> Core.TxOut ledgerera
+  -> StrictMaybe (Alonzo.DataHash ledgerera)
   -> TxOut era
-fromTxOut shelleyBasedEra' ledgerTxOut =
+fromTxOut shelleyBasedEra' ledgerTxOut _mDhash =
   case shelleyBasedEra' of
     ShelleyBasedEraShelley -> let (Shelley.TxOut addr value) = ledgerTxOut
                               in TxOut (fromShelleyAddr addr)
@@ -533,18 +537,19 @@ fromTxOut shelleyBasedEra' ledgerTxOut =
 
     ShelleyBasedEraAllegra -> let (Shelley.TxOut addr value) = ledgerTxOut
                               in TxOut (fromShelleyAddr addr)
-                                        (TxOutAdaOnly AdaOnlyInAllegraEra
-                                                      (fromShelleyLovelace value))
+                                       (TxOutAdaOnly AdaOnlyInAllegraEra
+                                                     (fromShelleyLovelace value))
 
     ShelleyBasedEraMary    -> let (Shelley.TxOut addr value) = ledgerTxOut
                               in TxOut (fromShelleyAddr addr)
-                                        (TxOutValue MultiAssetInMaryEra
-                                                      (fromMaryValue value))
+                                       (TxOutValue MultiAssetInMaryEra
+                                                     (fromMaryValue value))
 
-    ShelleyBasedEraAlonzo  -> let (Shelley.TxOut addr value) = ledgerTxOut
-                              in TxOut (fromShelleyAddr addr)
-                                        (TxOutValue MultiAssetInAlonzoEra
-                                                      (fromMaryValue value))
+    ShelleyBasedEraAlonzo  -> error "Uncomment below"
+                              --let (Alonzo.TxOut _addr _value _mDhash) = ledgerTxOut
+                              --in TxOut (fromShelleyAddr (error ""))
+                              --         (TxOutValue MultiAssetInAlonzoEra
+                              --                       (fromMaryValue (error "")))
 
 -- ----------------------------------------------------------------------------
 -- Era-dependent transaction body features
