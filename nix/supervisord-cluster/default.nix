@@ -1,6 +1,5 @@
 { pkgs
 , lib
-, cardano-cli
 , bech32
 , basePort ? 30000
 , stateDir ? "./state-cluster"
@@ -24,6 +23,12 @@ let
   profileDump = pkgs.writeText "profile-${profile.name}.json"
     (__toJSON profile);
 
+  topology = pkgs.callPackage ./topology.nix
+    { inherit stateDir;
+      inherit (pkgs) graphviz;
+      inherit (profile) composition;
+    };
+
   baseEnvConfig = pkgs.callPackage ./base-env.nix
     { inherit (pkgs.commonLib.cardanoLib) defaultLogConfig;
       inherit stateDir;
@@ -31,7 +36,7 @@ let
     };
 
   cardanoExes = pkgs.callPackage ./cardano-exes.nix
-    { inherit (pkgs) cabal-install cardano-node cardano-cli;
+    { inherit (pkgs) cabal-install cardano-node cardano-cli cardano-topology;
       inherit lib stateDir useCabalRun;
     };
 
@@ -42,8 +47,7 @@ let
       stateDir
       baseEnvConfig
       basePort
-      profile
-      cardanoExes;
+      profile;
       path = lib.makeBinPath
         [ bech32 pkgs.jq pkgs.gnused pkgs.coreutils pkgs.bash pkgs.moreutils ];
     };
@@ -61,20 +65,29 @@ let
     };
 
   start = pkgs.writeScriptBin "start-cluster" ''
+    set -euo pipefail
+
     while test $# -gt 0
     do case "$1" in
         --trace | --debug ) set -x;;
         * ) break;; esac; shift; done
 
-    ${cardanoExes}
-
-    echo "Profile '${profile.name}' dump in: ${profileDump}"
-    set -euo pipefail
     if [ -f ${stateDir}/supervisord.pid ]
     then
       echo "Cluster already running. Please run `stop-cluster` first!"
     fi
+
+    ${cardanoExes}
+
+    rm -rf ${stateDir}
+
+    ${topology}
+
+    echo "Profile '${profile.name}' dump in: ${profileDump}"
+    echo "Topology in: ${stateDir}/topology.json"
+
     ${genesis.files}
+
     ${pkgs.python3Packages.supervisor}/bin/supervisord \
         --config ${__trace "supervisorConfig: ${supervisorConfig} "
                    supervisorConfig} $@

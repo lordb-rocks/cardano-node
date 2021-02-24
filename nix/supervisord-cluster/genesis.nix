@@ -1,5 +1,4 @@
 { lib
-, cardanoExes
 , runCommand
 , writeText
 ##
@@ -16,8 +15,16 @@ rec {
   params = genesis;
   files = ''
     PATH=$PATH:${path}
-    rm -rf ${stateDir}
     mkdir -p ${stateDir}/{shelley,webserver}
+
+    cat <<EOF
+    Generating genesis for ${name}:
+      - BFT hosts:        ${toString composition.n_bft_hosts}
+      - pool hosts:       ${toString (composition.n_hosts - composition.n_bft_hosts)}
+      - pools:            ${toString composition.n_pools}, of them:
+        - dense:          ${toString composition.n_dense_pools}, at ${toString composition.dense_pool_density} density in ${toString composition.n_dense_hosts} hosts
+        - regular:        ${toString composition.n_singular_pools}
+    EOF
 
     system_start_epoch=$(date +%s --date="${genesis.genesis_future_offset}")
     system_start_human=$(date --utc +"%Y-%m-%dT%H:%M:%SZ" --date=@$system_start_epoch)
