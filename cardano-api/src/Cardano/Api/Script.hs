@@ -71,7 +71,7 @@ import qualified Data.Text as Text
 import qualified Data.Text.Encoding as Text
 import           Data.Type.Equality (TestEquality (..), (:~:) (Refl))
 
-import           Data.Aeson (Value (..), object, (.:), (.=))
+import           Data.Aeson
 import qualified Data.Aeson as Aeson
 import qualified Data.Aeson.Types as Aeson
 import qualified Data.Sequence.Strict as Seq
@@ -100,7 +100,6 @@ import           Cardano.Api.HasTypeProxy
 import           Cardano.Api.Hash
 import           Cardano.Api.KeysShelley
 import           Cardano.Api.SerialiseCBOR
-import           Cardano.Api.SerialiseJSON
 import           Cardano.Api.SerialiseRaw
 import           Cardano.Api.SerialiseTextEnvelope
 
@@ -200,6 +199,13 @@ data AnyScriptLanguage where
      AnyScriptLanguage :: ScriptLanguage lang -> AnyScriptLanguage
 
 deriving instance (Show AnyScriptLanguage)
+
+instance FromJSON AnyScriptLanguage where
+    parseJSON = error "TODO"
+
+instance Aeson.FromJSONKey AnyScriptLanguage where
+    fromJSONKey = error "TODO"
+
 
 instance Eq AnyScriptLanguage where
     AnyScriptLanguage lang == AnyScriptLanguage lang' =
