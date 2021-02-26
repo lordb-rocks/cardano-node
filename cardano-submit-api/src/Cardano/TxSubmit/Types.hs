@@ -14,38 +14,18 @@ module Cardano.TxSubmit.Types
   , renderTxCmdError
   ) where
 
-import Cardano.Api
-    ( TxId, AnyCardanoEra, TextEnvelopeError )
-import Cardano.Binary
-    ( DecoderError )
-import Cardano.TxSubmit.Tx
-    (
-    )
-import Data.Aeson
-    ( ToJSON (..), Value (..) )
-import Data.ByteString.Char8
-    ( ByteString )
-import Data.Text
-    ( Text )
-import Formatting
-    ( build, sformat )
-import GHC.Generics
-    ( Generic )
-import Network.HTTP.Media
-    ( (//) )
-import Servant
-    ( (:>)
-    , Accept (..)
-    , JSON
-    , MimeRender (..)
-    , MimeUnrender (..)
-    , PostAccepted
-    , ReqBody
-    )
-import Servant.API.Generic
-    ( (:-), ToServantApi )
-import Cardano.Api.Modes
+import           Cardano.Api (AnyCardanoEra, AnyConsensusMode (..), TextEnvelopeError, TxId)
+import           Cardano.Binary (DecoderError)
+import           Data.Aeson (ToJSON (..), Value (..))
+import           Data.ByteString.Char8 (ByteString)
+import           Data.Text (Text)
+import           Formatting (build, sformat)
+import           GHC.Generics (Generic)
+import           Network.HTTP.Media ((//))
 import           Ouroboros.Consensus.Cardano.Block (EraMismatch (..))
+import           Servant (Accept (..), JSON, MimeRender (..), MimeUnrender (..), PostAccepted,
+                   ReqBody, (:>))
+import           Servant.API.Generic (ToServantApi, (:-))
 
 import qualified Data.ByteString.Lazy.Char8 as LBS
 

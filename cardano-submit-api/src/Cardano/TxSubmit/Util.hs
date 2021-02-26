@@ -10,7 +10,6 @@ import           Cardano.Prelude
 
 import qualified Data.Text as T
 
-
 -- | ouroboros-network catches 'SomeException' and if a 'nullTracer' is passed into that
 -- code, the caught exception will not be logged. Therefore wrap all tx submission code that
 -- is called from network with an exception logger so at least the exception will be

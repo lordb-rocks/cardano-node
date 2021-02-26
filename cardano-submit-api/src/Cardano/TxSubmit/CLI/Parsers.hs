@@ -10,24 +10,24 @@ module Cardano.TxSubmit.CLI.Parsers
   , pSocketPath
   ) where
 
-import Cardano.Prelude
-
-import Cardano.Api.Modes
-import Cardano.Api
-    ( NetworkId (..), NetworkMagic (..) )
-import Cardano.TxSubmit.CLI.Types
-    ( ConfigFile (..), SocketPath (..), TxSubmitNodeParams (..) )
-import Cardano.TxSubmit.Rest.Parsers
-    ( pWebserverConfig )
-import Options.Applicative
-    ( Parser, ParserInfo )
+import           Cardano.Api (AnyConsensusModeParams (..), ConsensusModeParams (..),
+                   EpochSlots (..), NetworkId (..), NetworkMagic (..))
+import           Cardano.TxSubmit.CLI.Types (ConfigFile (..), SocketPath (..),
+                   TxSubmitNodeParams (..))
+import           Cardano.TxSubmit.Rest.Parsers (pWebserverConfig)
+import           Control.Applicative (Alternative (..), Applicative (..), (<**>))
+import           Data.Function ((.))
+import           Data.Functor (Functor (fmap), (<$>))
+import           Data.Semigroup (Semigroup ((<>)))
+import           Data.Word (Word64)
+import           Options.Applicative (Parser, ParserInfo)
 
 import qualified Options.Applicative as Opt
 
 opts :: ParserInfo TxSubmitNodeParams
 opts =
   Opt.info (pTxSubmitNodeParams <**> Opt.helper)
-    ( Opt.fullDesc
+    (  Opt.fullDesc
     <> Opt.progDesc "Cardano transaction submission web API."
     )
 
@@ -43,7 +43,7 @@ pTxSubmitNodeParams =
 pConfigFile :: Parser ConfigFile
 pConfigFile =
   ConfigFile <$> Opt.strOption
-    ( Opt.long "config"
+    (  Opt.long "config"
     <> Opt.help "Path to the tx-submit web API configuration file"
     <> Opt.completer (Opt.bashCompleter "file")
     <> Opt.metavar "FILEPATH"
@@ -130,7 +130,7 @@ pProtocol =
 pSocketPath :: Parser SocketPath
 pSocketPath =
   SocketPath <$> Opt.strOption
-    ( Opt.long "socket-path"
+    (  Opt.long "socket-path"
     <> Opt.help "Path to a cardano-node socket"
     <> Opt.completer (Opt.bashCompleter "file")
     <> Opt.metavar "FILEPATH"

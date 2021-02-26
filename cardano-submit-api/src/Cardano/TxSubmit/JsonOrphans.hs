@@ -6,8 +6,8 @@
 
 module Cardano.TxSubmit.JsonOrphans () where
 
-import Cardano.Crypto.Hash.Class as Cryptos
-import Data.Aeson
+import           Cardano.Crypto.Hash.Class as Cryptos
+import           Data.Aeson
 
 import qualified Shelley.Spec.Ledger.TxBody as Shelley
 

@@ -10,64 +10,53 @@ module Cardano.TxSubmit.Web
   ( runTxSubmitServer
   ) where
 
-import Cardano.TxSubmit.Rest.Web as Web
-import Cardano.TxSubmit.CLI.Types
-import Cardano.TxSubmit.JsonOrphans
-    ()
-import Cardano.TxSubmit.Metrics
-    ( TxSubmitMetrics (..) )
-import Cardano.TxSubmit.Tx
-import Cardano.TxSubmit.Types
-import Cardano.TxSubmit.Util
-
--- import Cardano.Api.Protocol
---     ( Protocol (..), withlocalNodeConnectInfo )
-import Cardano.Api.TxBody ( TxId(..) )
-import Cardano.Api
--- import Cardano.Api.Typed
---     ( NodeConsensusMode (..)
---     )
-import           Data.Bifunctor (first)
+import           Cardano.Api (AllegraEra, AnyCardanoEra (AnyCardanoEra),
+                   AnyConsensusMode (AnyConsensusMode), AnyConsensusModeParams (..),
+                   AsType (AsAllegraEra, AsByronEra, AsMaryEra, AsShelleyEra, AsTx), ByronEra,
+                   CardanoEra (AllegraEra, ByronEra, MaryEra, ShelleyEra), FromSomeType (..),
+                   HasTextEnvelope, HasTypeProxy (AsType), InAnyCardanoEra (..),
+                   LocalNodeConnectInfo (LocalNodeConnectInfo, localConsensusModeParams, localNodeNetworkId, localNodeSocketPath),
+                   MaryEra, NetworkId, ShelleyEra, TextEnvelopeError (TextEnvelopeAesonDecodeError),
+                   ToJSON, Tx, TxId (..), TxInMode (TxInMode),
+                   TxValidationErrorInMode (TxValidationEraMismatch, TxValidationErrorInMode),
+                   consensusModeOnly, deserialiseFromTextEnvelopeAnyOf, getTxBody, getTxId,
+                   submitTxToNodeLocal, toEraInMode)
+import           Cardano.BM.Trace (Trace, logInfo)
+import           Cardano.Binary (DecoderError)
 import           Cardano.Prelude (putTextLn)
-import Cardano.Binary
-    ( DecoderError )
-import Cardano.BM.Trace
-    ( Trace, logInfo )
-import Cardano.TxSubmit.Rest.Types
-    ( WebserverConfig (..), toWarpSettings )
-import Control.Monad.IO.Class
-    ( liftIO )
-import Data.Aeson
-    ( ToJSON (..) )
-import Data.ByteString.Char8
-    ( ByteString )
-import Data.Proxy
-    ( Proxy (..) )
-import Data.Text
-    ( Text )
-import Servant
-    ( Application, Handler, ServerError (..), err400, throwError )
-import Servant.API.Generic
-    ( toServant )
-import Servant.Server.Generic
-    ( AsServerT )
+import           Cardano.TxSubmit.CLI.Types
+import           Cardano.TxSubmit.JsonOrphans ()
+import           Cardano.TxSubmit.Metrics (TxSubmitMetrics (..))
+import           Cardano.TxSubmit.Rest.Types (WebserverConfig (..), toWarpSettings)
+import           Cardano.TxSubmit.Rest.Web as Web
+import           Cardano.TxSubmit.Types
+import           Cardano.TxSubmit.Util
+import           Control.Monad.Except
+import           Control.Monad.IO.Class (liftIO)
 import           Control.Monad.Trans.Except.Extra (firstExceptT, handleIOExceptT, hoistEither,
-                  hoistMaybe, left, newExceptT)
-import Control.Monad.Except
-import           System.Environment (lookupEnv)
+                   hoistMaybe, left, newExceptT)
+import           Data.Aeson (ToJSON (..))
+import           Data.Bifunctor (first)
+import           Data.ByteString.Char8 (ByteString)
+import           Data.Proxy (Proxy (..))
+import           Data.Text (Text)
 import           Ouroboros.Consensus.Cardano.Block (EraMismatch (..))
+import           Servant (Application, Handler, ServerError (..), err400, throwError)
+import           Servant.API.Generic (toServant)
+import           Servant.Server.Generic (AsServerT)
+import           System.Environment (lookupEnv)
 
-import qualified Ouroboros.Network.Protocol.LocalTxSubmission.Client as Net.Tx
 import qualified Cardano.Crypto.Hash.Class as Crypto
 import qualified Data.Aeson as Aeson
+import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as B8
 import qualified Data.Char as Char
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
+import qualified Ouroboros.Network.Protocol.LocalTxSubmission.Client as Net.Tx
 import qualified Servant
-import qualified System.Metrics.Prometheus.Metric.Gauge as Gauge
-import qualified Data.ByteString as BS
 import qualified System.IO as IO
+import qualified System.Metrics.Prometheus.Metric.Gauge as Gauge
 
 runTxSubmitServer
   :: Trace IO Text
@@ -169,7 +158,7 @@ txSubmitPost trce metrics (AnyConsensusModeParams cModeParams) networkId (Socket
       handle f = do
         result <- liftIO $ runExceptT f
         handleSubmitResult result
-        
+
       errorResponse :: ToJSON e => e -> Handler a
       errorResponse e = throwError $ err400 { errBody = Aeson.encode e }
 
